@@ -392,6 +392,12 @@ export async function modelsAuthLoginCommand(opts: LoginOptions, runtime: Runtim
     throw new Error("Unknown provider. Use --provider <id> to pick a provider plugin.");
   }
 
+  if (opts.replace) {
+    runtime.log(
+      "Note: --replace only affects built-in --provider openai-codex login; plugin providers manage overwrites themselves.",
+    );
+  }
+
   const chosenMethod =
     pickAuthMethod(selectedProvider, opts.method) ??
     (selectedProvider.auth.length === 1

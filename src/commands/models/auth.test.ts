@@ -206,6 +206,29 @@ describe("modelsAuthLoginCommand", () => {
     );
   });
 
+  it("warns that --replace only applies to built-in openai-codex login", async () => {
+    const runtime = createRuntime();
+    mocks.resolvePluginProviders.mockReturnValue([
+      {
+        id: "plugin-provider",
+        label: "Plugin Provider",
+        auth: [
+          {
+            id: "oauth",
+            label: "OAuth",
+            run: vi.fn(async () => ({ profiles: [], defaultModel: undefined })),
+          },
+        ],
+      },
+    ]);
+
+    await modelsAuthLoginCommand({ provider: "plugin-provider", replace: true }, runtime);
+
+    expect(runtime.log).toHaveBeenCalledWith(
+      "Note: --replace only affects built-in --provider openai-codex login; plugin providers manage overwrites themselves.",
+    );
+  });
+
   it("does not persist a cancelled manual token entry", async () => {
     const runtime = createRuntime();
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((

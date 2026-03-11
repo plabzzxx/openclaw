@@ -159,7 +159,7 @@ function resolveSiblingAgentDirs(primaryAgentDir: string): string[] {
 function resolveOpenAICodexProfileId(
   provider: string,
   creds: OAuthCredentials,
-  existingProfiles: Set<string>,
+  existingProfiles: Record<string, OAuthCredentials & { type?: string }>,
 ): string {
   const email = typeof creds.email === "string" && creds.email.trim() ? creds.email.trim() : "";
   if (email) {
@@ -176,11 +176,23 @@ function resolveOpenAICodexProfileId(
       .slice(0, 8)
       .toLowerCase();
     const base = `${provider}:acct_${normalized || "unknown"}`;
-    if (!existingProfiles.has(base)) {
+    const existingEntries = Object.entries(existingProfiles).filter(
+      ([profileId]) => profileId === base || profileId.startsWith(`${base}_`),
+    );
+    for (const [profileId, profile] of existingEntries) {
+      const existingAccountId =
+        typeof (profile as { accountId?: unknown }).accountId === "string"
+          ? (profile as { accountId?: string }).accountId?.trim()
+          : "";
+      if (existingAccountId === accountIdRaw) {
+        return profileId;
+      }
+    }
+    if (!(base in existingProfiles)) {
       return base;
     }
     let suffix = 2;
-    while (existingProfiles.has(`${base}_${suffix}`)) {
+    while (`${base}_${suffix}` in existingProfiles) {
       suffix += 1;
     }
     return `${base}_${suffix}`;
@@ -197,11 +209,7 @@ export async function writeOAuthCredentials(
 ): Promise<string> {
   const resolvedAgentDir = path.resolve(resolveAuthAgentDir(agentDir));
   const existingStore = ensureAuthProfileStore(resolvedAgentDir, { allowKeychainPrompt: false });
-  const profileId = resolveOpenAICodexProfileId(
-    provider,
-    creds,
-    new Set(Object.keys(existingStore.profiles ?? {})),
-  );
+  const profileId = resolveOpenAICodexProfileId(provider, creds, existingStore.profiles ?? {});
   if (existingStore.profiles[profileId] && options?.replaceExisting !== true) {
     throw new Error(
       `Auth profile "${profileId}" already exists. Re-run with --replace to overwrite it.`,

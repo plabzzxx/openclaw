@@ -233,6 +233,38 @@ describe("writeOAuthCredentials", () => {
     });
   });
 
+  it("reuses the same accountId fallback profile on re-login when replaceExisting is true", async () => {
+    const env = await setupAuthTestEnv("openclaw-oauth-account-relogin-");
+    lifecycle.setStateDir(env.stateDir);
+
+    const creds = {
+      refresh: "refresh-account-1",
+      access: "access-account-1",
+      expires: Date.now() + 60_000,
+      accountId: "acc-1234-xyz",
+    } satisfies OAuthCredentials & { accountId: string };
+
+    await writeOAuthCredentials("openai-codex", creds);
+    await writeOAuthCredentials(
+      "openai-codex",
+      { ...creds, access: "access-account-2", refresh: "refresh-account-2" },
+      undefined,
+      { replaceExisting: true },
+    );
+
+    const parsed = await readAuthProfilesForAgent<{
+      profiles?: Record<string, OAuthCredentials & { type?: string }>;
+    }>(env.agentDir);
+    expect(
+      Object.keys(parsed.profiles ?? {}).filter((id) => id.startsWith("openai-codex:acct_")),
+    ).toEqual(["openai-codex:acct_acc1234x"]);
+    expect(parsed.profiles?.["openai-codex:acct_acc1234x"]).toMatchObject({
+      access: "access-account-2",
+      refresh: "refresh-account-2",
+      type: "oauth",
+    });
+  });
+
   it("writes OAuth credentials to all sibling agent dirs when syncSiblingAgents=true", async () => {
     tempStateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-oauth-sync-"));
     process.env.OPENCLAW_STATE_DIR = tempStateDir;
