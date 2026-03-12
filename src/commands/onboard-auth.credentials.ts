@@ -183,7 +183,9 @@ function resolveOpenAICodexProfileId(
     );
     for (const [profileId, profile] of existingEntries) {
       const existingAccountId =
-        typeof profile.accountId === "string" ? profile.accountId.trim() : "";
+        typeof (profile as OAuthCredentials & { accountId?: unknown }).accountId === "string"
+          ? (profile as OAuthCredentials & { accountId?: string }).accountId?.trim()
+          : "";
       if (existingAccountId === accountIdRaw) {
         return profileId;
       }
